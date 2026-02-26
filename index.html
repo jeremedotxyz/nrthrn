@@ -4,65 +4,175 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>nrthrn</title>
-<head>
-</head>
-  <!-- Google tag (gtag.js) -->
+
+<!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-YQ6EBVNNGD"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
-
   gtag('config', 'G-YQ6EBVNNGD');
 </script>
+
 <style>
-html,body{
-  margin:0;
-  height:100%;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-}
-
-body{
-  background:url("bg.png") center/cover no-repeat;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  color:white;
-}
-
-.overlay{
-  position:fixed;
-  inset:0;
-  background:linear-gradient(to bottom, rgba(0,0,0,.25), rgba(0,0,0,.7));
-}
-
-.text{
-  position:relative;
-  text-align:center;
-  padding:40px;
-}
-
-h1{
-  margin:0;
-  font-size:48px;
-  letter-spacing:-1px;
-}
-
-p{
-  margin-top:12px;
-  font-size:18px;
-  opacity:.85;
-}
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #050c08;
+  }
+  .bg {
+    position: fixed;
+    inset: -60px;
+    background: url("bg.png") center / cover no-repeat;
+    will-change: transform;
+    animation: drift 32s ease-in-out infinite alternate;
+  }
+  @keyframes drift {
+    0%   { transform: translate(0px,   0px)   scale(1.08); }
+    25%  { transform: translate(-18px, -10px) scale(1.10); }
+    50%  { transform: translate(-8px,  16px)  scale(1.09); }
+    75%  { transform: translate(14px,  6px)   scale(1.11); }
+    100% { transform: translate(6px,  -14px)  scale(1.10); }
+  }
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(180deg,
+      rgba(5,12,8,.30) 0%,
+      rgba(5,12,8,.60) 55%,
+      rgba(5,12,8,.88) 100%
+    );
+  }
+  canvas {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+  }
+  .text {
+    position: relative;
+    text-align: center;
+    padding: 40px;
+    animation: fadeUp 2.2s cubic-bezier(.16,1,.3,1) both;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(22px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  h1 { margin: 0; font-size: 48px; letter-spacing: -1px; }
+  p  { margin-top: 12px; font-size: 18px; opacity: .85; }
 </style>
 </head>
-
 <body>
+
+<div class="bg"></div>
 <div class="overlay"></div>
+<canvas id="c"></canvas>
 
 <div class="text">
   <h1>nrthrn</h1>
   <p>quiet builders change everything.</p>
 </div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H;
+
+// ── Fog ───────────────────────────────────────────────────
+const FOG_COUNT = 18;
+let fog = [];
+for (let i = 0; i < FOG_COUNT; i++) fog.push(makeFogPatch(true));
+
+function makeFogPatch(randomY) {
+  return {
+    x:     Math.random() * window.innerWidth * 1.4 - window.innerWidth * 0.2,
+    y:     randomY ? Math.random() * (window.innerHeight * 0.85) : -120,
+    rx:    160 + Math.random() * 260,
+    ry:    40  + Math.random() * 70,
+    alpha: 0.03 + Math.random() * 0.07,
+    speed: 0.12 + Math.random() * 0.22,
+    drift: (Math.random() - 0.5) * 0.25,
+  };
+}
+
+// ── Rain ──────────────────────────────────────────────────
+const RAIN_COUNT = 180;
+let rain = [];
+for (let i = 0; i < RAIN_COUNT; i++) rain.push(makeRain(true));
+
+function makeRain(randomY) {
+  return {
+    x:     Math.random() * (window.innerWidth + 200) - 100,
+    y:     randomY ? Math.random() * window.innerHeight : -20,
+    len:   8  + Math.random() * 14,
+    speed: 5  + Math.random() * 7,
+    alpha: 0.08 + Math.random() * 0.18,
+  };
+}
+
+// ── Resize ────────────────────────────────────────────────
+function resize() {
+  W = canvas.width  = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+
+// ── Draw loop ─────────────────────────────────────────────
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Rain
+  ctx.save();
+  for (const r of rain) {
+    r.y += r.speed;
+    r.x -= r.speed * 0.18;
+    if (r.y > H + 20) { Object.assign(r, makeRain(false)); r.y = -20; }
+    ctx.beginPath();
+    ctx.moveTo(r.x, r.y);
+    ctx.lineTo(r.x + r.len * 0.18, r.y + r.len);
+    ctx.strokeStyle = `rgba(160,210,180, ${r.alpha})`;
+    ctx.lineWidth = 0.6;
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Fog
+  for (const f of fog) {
+    f.y += f.speed * 0.4;
+    f.x += f.drift;
+    if (f.y > H + 100) { Object.assign(f, makeFogPatch(false)); f.y = -120; }
+    const grad = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, Math.max(f.rx, f.ry));
+    grad.addColorStop(0,   `rgba(180,220,195, ${f.alpha})`);
+    grad.addColorStop(0.5, `rgba(160,200,175, ${f.alpha * 0.5})`);
+    grad.addColorStop(1,   `rgba(140,180,160, 0)`);
+    ctx.save();
+    ctx.scale(1, f.ry / f.rx);
+    ctx.beginPath();
+    ctx.arc(f.x, f.y * (f.rx / f.ry), f.rx, 0, Math.PI * 2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Ground fog band
+  const groundFog = ctx.createLinearGradient(0, H * 0.72, 0, H);
+  groundFog.addColorStop(0,   'rgba(160,210,180,0)');
+  groundFog.addColorStop(0.4, 'rgba(160,210,180,0.07)');
+  groundFog.addColorStop(1,   'rgba(140,190,160,0.18)');
+  ctx.fillStyle = groundFog;
+  ctx.fillRect(0, 0, W, H);
+
+  requestAnimationFrame(draw);
+}
+
+resize();
+draw();
+</script>
 
 </body>
 </html>
